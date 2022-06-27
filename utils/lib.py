@@ -270,7 +270,7 @@ def draw_plot_func(dictionary, n_classes, window_title, plot_title, x_label, out
     plt.close()
 
 
-def init_ground_truth(GT_PATH, DR_PATH, TEMP_FILES_PATH, ignore_classes, yolo_format):
+def init_ground_truth(config, ignore_classes):
 
     """
      ground-truth
@@ -278,7 +278,7 @@ def init_ground_truth(GT_PATH, DR_PATH, TEMP_FILES_PATH, ignore_classes, yolo_fo
          Create a list of all the class names present in the ground-truth (gt_classes).
     """
     # get a list with the ground-truth files
-    ground_truth_files_list = glob.glob(GT_PATH + '/*.txt')
+    ground_truth_files_list = glob.glob(config.ground_truth_path + '/*.txt')
     if len(ground_truth_files_list) == 0:
         error("Error: No ground-truth files found!")
     ground_truth_files_list.sort()
@@ -292,7 +292,7 @@ def init_ground_truth(GT_PATH, DR_PATH, TEMP_FILES_PATH, ignore_classes, yolo_fo
         file_id = txt_file.split(".txt", 1)[0]
         file_id = os.path.basename(os.path.normpath(file_id))
         # check if there is a correspondent detection-results file
-        temp_path = os.path.join(DR_PATH, (file_id + ".txt"))
+        temp_path = os.path.join(config.result_path, (file_id + ".txt"))
         if not os.path.exists(temp_path):
             error_msg = "Error. File not found: {}\n".format(temp_path)
             error_msg += "(You can avoid this error message by running extra/intersect-gt-and-dr.py)"
@@ -310,7 +310,7 @@ def init_ground_truth(GT_PATH, DR_PATH, TEMP_FILES_PATH, ignore_classes, yolo_fo
                 else:
                         class_name, left, top, right, bottom = line.split()
 
-                if yolo_format:
+                if config.yolo_format:
                     left, top, right, bottom = from_yolo(left, top, right, bottom)
 
             except ValueError:
@@ -346,7 +346,7 @@ def init_ground_truth(GT_PATH, DR_PATH, TEMP_FILES_PATH, ignore_classes, yolo_fo
 
 
         # dump bounding_boxes into a ".json" file
-        new_temp_file = TEMP_FILES_PATH + "/" + file_id + "_ground_truth.json"
+        new_temp_file = config.temp_file_path + "/" + file_id + "_ground_truth.json"
         gt_files.append(new_temp_file)
         with open(new_temp_file, 'w') as outfile:
             json.dump(bounding_boxes, outfile)
@@ -360,14 +360,14 @@ def init_ground_truth(GT_PATH, DR_PATH, TEMP_FILES_PATH, ignore_classes, yolo_fo
 
     return gt_counter_per_class, counter_images_per_class, gt_files, ground_truth_files_list, gt_classes, n_classes
 
-def init_detection(DR_PATH, GT_PATH, TEMP_FILES_PATH, gt_classes, yolo_format):
+def init_detection(config, gt_classes):
 
     """
      detection-results
          Load each of the detection-results files into a temporary ".json" file.
     """
     # get a list with the detection-results files
-    dr_files_list = glob.glob(DR_PATH + '/*.txt')
+    dr_files_list = glob.glob(config.result_path + '/*.txt')
     dr_files_list.sort()
 
     for class_index, class_name in enumerate(gt_classes):
@@ -377,7 +377,7 @@ def init_detection(DR_PATH, GT_PATH, TEMP_FILES_PATH, gt_classes, yolo_format):
             # the first time it checks if all the corresponding ground-truth files exist
             file_id = txt_file.split(".txt",1)[0]
             file_id = os.path.basename(os.path.normpath(file_id))
-            temp_path = os.path.join(GT_PATH, (file_id + ".txt"))
+            temp_path = os.path.join(config.ground_truth_path, (file_id + ".txt"))
             if class_index == 0:
                 if not os.path.exists(temp_path):
                     error_msg = "Error. File not found: {}\n".format(temp_path)
@@ -388,7 +388,7 @@ def init_detection(DR_PATH, GT_PATH, TEMP_FILES_PATH, gt_classes, yolo_format):
                 try:
                     tmp_class_name, confidence, left, top, right, bottom = line.split()
 
-                    if yolo_format:
+                    if config.yolo_format:
                         left, top, right, bottom = from_yolo(left, top, right, bottom)
 
                 except ValueError:
@@ -403,7 +403,7 @@ def init_detection(DR_PATH, GT_PATH, TEMP_FILES_PATH, gt_classes, yolo_format):
                     #print(bounding_boxes)
         # sort detection-results by decreasing confidence
         bounding_boxes.sort(key=lambda x:float(x['confidence']), reverse=True)
-        with open(TEMP_FILES_PATH + "/" + class_name + "_dr.json", 'w') as outfile:
+        with open(config.temp_file_path + "/" + class_name + "_dr.json", 'w') as outfile:
             json.dump(bounding_boxes, outfile)
 
     return dr_files_list

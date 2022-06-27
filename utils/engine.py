@@ -8,8 +8,8 @@ import os
 import glob
 import json
 
-def compute(output_files_path, TEMP_FILES_PATH, IMG_PATH, specific_iou_classes, MINOVERLAP, gt_classes, show_animation, draw_text_in_image,
-            n_classes,gt_counter_per_class, voc_ap, counter_images_per_class, log_average_miss_rate, draw_plot):
+def compute(config, specific_iou_classes, gt_classes, draw_text_in_image,
+            n_classes,gt_counter_per_class, voc_ap, counter_images_per_class, log_average_miss_rate):
     """
      Calculate the AP for each class
     """
@@ -17,7 +17,7 @@ def compute(output_files_path, TEMP_FILES_PATH, IMG_PATH, specific_iou_classes, 
     ap_dictionary = {}
     lamr_dictionary = {}
     # open file to store the output
-    with open(output_files_path + "/output.txt", 'w') as output_file:
+    with open(config.output_files_path + "/output.txt", 'w') as output_file:
         output_file.write("# AP and precision/recall per class\n")
         count_true_positives = {}
         for class_index, class_name in enumerate(gt_classes):
@@ -25,7 +25,7 @@ def compute(output_files_path, TEMP_FILES_PATH, IMG_PATH, specific_iou_classes, 
             """
              Load detection-results of that class
             """
-            dr_file = TEMP_FILES_PATH + "/" + class_name + "_dr.json"
+            dr_file = config.temp_file_path + "/" + class_name + "_dr.json"
             dr_data = json.load(open(dr_file))
 
             """
@@ -36,9 +36,9 @@ def compute(output_files_path, TEMP_FILES_PATH, IMG_PATH, specific_iou_classes, 
             fp = [0] * nd
             for idx, detection in enumerate(dr_data):
                 file_id = detection["file_id"]
-                if show_animation:
+                if config.show_animation:
                     # find ground truth image
-                    ground_truth_img = glob.glob1(IMG_PATH, file_id + ".*")
+                    ground_truth_img = glob.glob1(config.image_path, file_id + ".*")
                     # tifCounter = len(glob.glob1(myPath,"*.tif"))
                     if len(ground_truth_img) == 0:
                         error("Error. Image not found with id: " + file_id)
@@ -47,9 +47,9 @@ def compute(output_files_path, TEMP_FILES_PATH, IMG_PATH, specific_iou_classes, 
                     else:  # found image
                         # print(IMG_PATH + "/" + ground_truth_img[0])
                         # Load image
-                        img = cv2.imread(IMG_PATH + "/" + ground_truth_img[0])
+                        img = cv2.imread(config.image_path + "/" + ground_truth_img[0])
                         # load image with draws of multiple detections
-                        img_cumulative_path = output_files_path + "/images/" + ground_truth_img[0]
+                        img_cumulative_path = config.output_files_path + "/images/" + ground_truth_img[0]
                         if os.path.isfile(img_cumulative_path):
                             img_cumulative = cv2.imread(img_cumulative_path)
                         else:
@@ -60,7 +60,7 @@ def compute(output_files_path, TEMP_FILES_PATH, IMG_PATH, specific_iou_classes, 
                         img = cv2.copyMakeBorder(img, 0, bottom_border, 0, 0, cv2.BORDER_CONSTANT, value=BLACK)
                 # assign detection-results to ground truth object if any
                 # open ground-truth with that file_id
-                gt_file = TEMP_FILES_PATH + "/" + file_id + "_ground_truth.json"
+                gt_file = config.temp_file_path + "/" + file_id + "_ground_truth.json"
                 ground_truth_data = json.load(open(gt_file))
                 ovmax = -1
                 gt_match = -1
@@ -83,10 +83,10 @@ def compute(output_files_path, TEMP_FILES_PATH, IMG_PATH, specific_iou_classes, 
                                 gt_match = obj
 
                 # assign detection as true positive/don't care/false positive
-                if show_animation:
+                if config.show_animation:
                     status = "NO MATCH FOUND!"  # status is only used in the animation
                 # set minimum overlap
-                min_overlap = MINOVERLAP
+                min_overlap = config.iou
 
                 if class_name in specific_iou_classes:
                     index = specific_iou_classes.index(class_name)
@@ -102,12 +102,12 @@ def compute(output_files_path, TEMP_FILES_PATH, IMG_PATH, specific_iou_classes, 
                             # update the ".json" file
                             with open(gt_file, 'w') as f:
                                 f.write(json.dumps(ground_truth_data))
-                            if show_animation:
+                            if config.show_animation:
                                 status = "MATCH!"
                         else:
                             # false positive (multiple detection)
                             fp[idx] = 1
-                            if show_animation:
+                            if config.show_animation:
                                 status = "REPEATED MATCH!"
                 else:
                     # false positive
@@ -118,7 +118,7 @@ def compute(output_files_path, TEMP_FILES_PATH, IMG_PATH, specific_iou_classes, 
                 """
                  Draw image to show animation
                 """
-                if show_animation:
+                if config.show_animation:
                     height, widht = img.shape[:2]
                     # colors (OpenCV works with BGR)
                     white = (255, 255, 255)
@@ -164,10 +164,10 @@ def compute(output_files_path, TEMP_FILES_PATH, IMG_PATH, specific_iou_classes, 
                     cv2.rectangle(img_cumulative, (bb[0], bb[1]), (bb[2], bb[3]), color, 2)
                     cv2.putText(img_cumulative, class_name, (bb[0], bb[1] - 5), font, 0.6, color, 1, cv2.LINE_AA)
                     # show image
-                    cv2.imshow("Animation", img)
-                    cv2.waitKey(20)  # show for 20 ms
+                    #cv2.imshow("Animation", img)
+                    #cv2.waitKey(20)  # show for 20 ms
                     # save image to output
-                    output_img_path = output_files_path + "/images/detections_one_by_one/" + class_name + "_detection" + str(
+                    output_img_path = config.output_files_path + "/images/detections_one_by_one/" + class_name + "_detection" + str(
                         idx) + ".jpg"
                     cv2.imwrite(output_img_path, img)
                     # save the image with all the objects drawn to it
@@ -203,9 +203,9 @@ def compute(output_files_path, TEMP_FILES_PATH, IMG_PATH, specific_iou_classes, 
             rounded_rec = ['%.2f' % elem for elem in rec]
             output_file.write(text + "\n Precision: " + str(rounded_prec) + "\n Recall :" + str(rounded_rec) + "\n\n")
 
-            print(text)
-            #if not args.quiet:
-            #    print(text)
+            if not config.quiet:
+                print(text)
+
             ap_dictionary[class_name] = ap
 
             n_images = counter_images_per_class[class_name]
@@ -215,7 +215,7 @@ def compute(output_files_path, TEMP_FILES_PATH, IMG_PATH, specific_iou_classes, 
             """
              Draw plot
             """
-            if draw_plot:
+            if config.draw_plot:
                 plt.plot(rec, prec, '-o')
                 # add a new penultimate point to the list (mrec[-2], 0.0)
                 # since the last line segment (and respective area) do not affect the AP value
@@ -240,11 +240,11 @@ def compute(output_files_path, TEMP_FILES_PATH, IMG_PATH, specific_iou_classes, 
                 # Alternative option -> normal display
                 # plt.show()
                 # save the plot
-                fig.savefig(output_files_path + "/classes/" + class_name + ".png")
+                fig.savefig(config.output_files_path + "/classes/" + class_name + ".png")
                 plt.cla()  # clear axes for next plot
 
-        if show_animation:
-            cv2.destroyAllWindows()
+        #if config.show_animation:
+        #    cv2.destroyAllWindows()
 
         output_file.write("\n# mAP of all classes\n")
         mAP = sum_AP / n_classes
